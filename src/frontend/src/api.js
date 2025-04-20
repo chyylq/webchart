@@ -1,0 +1,54 @@
+// api.js
+// Utilities for fetching data from the FastAPI backend
+
+import { useQuery } from '@tanstack/react-query';
+
+const API_BASE = 'http://localhost:8000';
+
+/**
+ * useInstruments
+ * Purpose: Fetches the list of available instruments (by frequency) from the FastAPI backend.
+ * Called from: src/frontend/src/App.js (Dashboard component) to populate the frequency and instrument dropdowns.
+ */
+export function useInstruments() {
+  return useQuery({
+    queryKey: ['instruments'],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/instruments`);
+      if (!res.ok) throw new Error('Failed to fetch instruments');
+      return res.json();
+    }
+  });
+}
+
+/**
+ * useInstrumentData
+ * Purpose: Fetches time series data for the selected instrument and frequency from the FastAPI backend.
+ * Called from: src/frontend/src/App.js (Dashboard component) whenever the user selects a frequency/instrument or changes date range.
+ *
+ * @param {string} frequency - The frequency of the data ('daily' or 'hourly').
+ * @param {string} instrument - The selected instrument name.
+ * @param {object} params - Optional date range (start, end).
+ */
+export function useInstrumentData(frequency, instrument, params = {}) {
+  return useQuery({
+    queryKey: [
+      'data',
+      frequency,
+      instrument,
+      params.start,
+      params.end
+    ],
+    queryFn: async () => {
+      if (!frequency || !instrument) return [];
+      const url = new URL(`${API_BASE}/data/${frequency}/${instrument}`);
+      if (params.start) url.searchParams.append('start', params.start);
+      if (params.end) url.searchParams.append('end', params.end);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to fetch data');
+      // The backend now returns { data: [...], plot_columns: [...] }
+      return res.json();
+    },
+    enabled: !!frequency && !!instrument
+  });
+}
