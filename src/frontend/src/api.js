@@ -6,6 +6,22 @@ import { useQuery } from '@tanstack/react-query';
 const API_BASE = 'http://localhost:8000';
 
 /**
+ * useModules
+ * Purpose: Fetches the list of available data manipulation modules from the FastAPI backend.
+ * Called from: Main page to display module selection.
+ */
+export function useModules() {
+  return useQuery({
+    queryKey: ['modules'],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/modules`);
+      if (!res.ok) throw new Error('Failed to fetch modules');
+      return res.json();
+    }
+  });
+}
+
+/**
  * useInstruments
  * Purpose: Fetches the list of available instruments (by frequency) from the FastAPI backend.
  * Called from: src/frontend/src/App.js (Dashboard component) to populate the frequency and instrument dropdowns.
@@ -44,6 +60,7 @@ export function useInstrumentData(frequency, instrument, params = {}) {
       const url = new URL(`${API_BASE}/data/${frequency}/${instrument}`);
       if (params.start) url.searchParams.append('start', params.start);
       if (params.end) url.searchParams.append('end', params.end);
+      if (params.module) url.searchParams.append('module', params.module);
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch data');
       // The backend now returns { data: [...], plot_columns: [...] }

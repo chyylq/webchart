@@ -41,11 +41,52 @@ def list_instruments():
             result[freq] = []
     return result
 
-from .data_manipulation import process_instrument_data
+import importlib
+import pkgutil
+import pathlib
+
+MODULES_DIR = pathlib.Path(__file__).parent / "modules"
+
+
+def list_available_modules():
+    """Dynamically list all available manipulation modules in modules/ directory."""
+    modules = []
+    for module_info in pkgutil.iter_modules([str(MODULES_DIR)]):
+        if module_info.name.startswith("_") or not module_info.name.endswith(""):
+            continue
+        try:
+            mod = importlib.import_module(f"src.backend.modules.{module_info.name}")
+            module_name = getattr(mod, "MODULE_NAME", module_info.name)
+        except Exception:
+            module_name = module_info.name
+        modules.append({
+            "module": module_info.name,
+            "display_name": module_name
+        })
+    return modules
+
+# --- END MODULE LISTING UTILS ---
+
+
+@app.get("/modules")
+def get_modules():
+    """List all available data manipulation modules for the frontend."""
+    return list_available_modules()
+
 
 @app.get("/data/{frequency}/{instrument}")
-def get_instrument_data(frequency: str, instrument: str, start: str = None, end: str = None):
-    """Return processed instrument data and plot columns as JSON, with optional date filtering. Frequency is 'daily' or 'hourly'."""
+def get_instrument_data(
+    frequency: str,
+    instrument: str,
+    start: str = None,
+    end: str = None,
+    module: str = "stock_chart"
+):
+    """
+    Return processed instrument data and plot columns as JSON, with optional date filtering and module selection.
+    Frequency is 'daily' or 'hourly'.
+    The 'module' query parameter selects the data manipulation module to use.
+    """
     if frequency not in FREQUENCY_DIRS:
         raise HTTPException(status_code=400, detail="Invalid frequency")
     freq_dir = os.path.join(DATA_DIR, FREQUENCY_DIRS[frequency])
@@ -64,7 +105,13 @@ def get_instrument_data(frequency: str, instrument: str, start: str = None, end:
             df = df[df['date'] >= pd.to_datetime(start)]
         if end:
             df = df[df['date'] <= pd.to_datetime(end)]
-    # Process data using the data manipulation module
-    result = process_instrument_data(df, frequency, instrument)
+    # Dynamically import and use the selected module
+    try:
+        module_mod = importlib.import_module(f"src.backend.modules.{module}")
+    except ModuleNotFoundError:
+        raise HTTPException(status_code=400, detail=f"Module '{module}' not found.")
+    if not hasattr(module_mod, "process"):
+        raise HTTPException(status_code=500, detail=f"Module '{module}' does not have a 'process' function.")
+    result = module_mod.process(df, frequency, instrument)
     return result
 

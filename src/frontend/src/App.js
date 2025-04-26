@@ -3,6 +3,9 @@
 
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import ModuleList from './components/ModuleList';
+import ModuleDashboard from './ModuleDashboard';
 import { useInstruments, useInstrumentData } from './api';
 import InstrumentChart from './components/InstrumentChart';
 import InstrumentTable from './components/InstrumentTable';
@@ -93,7 +96,12 @@ function Dashboard() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Dashboard />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<ModuleList />} />
+          <Route path="/module/:moduleName" element={<ModuleDashboard />} />
+        </Routes>
+      </BrowserRouter>
     </QueryClientProvider>
   );
 }
