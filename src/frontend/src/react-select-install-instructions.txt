@@ -1,0 +1,21 @@
+# react-select installation instructions
+
+To use a modern, user-friendly multi-select dropdown in React, install the `react-select` package:
+
+npm install react-select
+
+# or, if using yarn:
+yarn add react-select
+
+After installing, you can import and use it in your components:
+
+import Select from 'react-select';
+
+// For multi-select:
+<Select isMulti options={...} value={...} onChange={...} />
+
+# Next steps
+- After installing, update ModuleDashboard.js to use react-select for overlay module selection.
+- Remove the native <select multiple>.
+- Map module options to react-select's format: { value, label }.
+- Update overlay selection logic to work with react-select's onChange signature.

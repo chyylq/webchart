@@ -1,6 +1,6 @@
 """
-stock_chart.py
-Module for stock chart data manipulation (moving averages, etc).
+ma_chart.py
+Module for moving average (MA) calculations as a separate technical indicator.
 
 Exposes a standard `process` function for use by the backend dispatcher.
 """
@@ -8,7 +8,7 @@ import pandas as pd
 
 def process(df: pd.DataFrame, frequency: str, instrument: str, **kwargs) -> dict:
     """
-    Processes the instrument data by adding moving averages and any other user-defined features.
+    Processes the instrument data by adding moving averages (MA20, MA60, MA120).
 
     Called from: src/backend/main.py (dynamic module loader).
 
@@ -21,15 +21,17 @@ def process(df: pd.DataFrame, frequency: str, instrument: str, **kwargs) -> dict
     Returns:
         dict: {
             'data': processed DataFrame as records (list of dicts),
-            'plot_columns': list of columns to plot (e.g., ['close', 'ma20', 'ma60', 'ma120'])
+            'plot_columns': list of columns to plot (e.g., ['ma20', 'ma60', 'ma120'])
         }
     """
     df = df.copy()
-    plot_columns = ['close']
+    df['ma20'] = df['close'].rolling(window=20, min_periods=1).mean()
+    df['ma60'] = df['close'].rolling(window=60, min_periods=1).mean()
+    df['ma120'] = df['close'].rolling(window=120, min_periods=1).mean()
+    plot_columns = ['ma20', 'ma60', 'ma120']
     return {
         'data': df.to_dict(orient='records'),
         'plot_columns': plot_columns
     }
 
-# Optional: human-readable name for frontend display
-MODULE_NAME = "Stock Chart (Price Only)"
+MODULE_NAME = "Moving Averages"

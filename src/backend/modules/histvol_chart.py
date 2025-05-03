@@ -54,4 +54,4 @@ def process(df: pd.DataFrame, frequency: str, instrument: str, **kwargs) -> dict
         'plot_columns': plot_columns
     }
 
-MODULE_NAME = "Historical Volatility (20/60/250d)"
+MODULE_NAME = "Historical Volatility"

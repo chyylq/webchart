@@ -1,6 +1,6 @@
 """
-stock_chart.py
-Module for stock chart data manipulation (moving averages, etc).
+volume_chart.py
+Module for stock volume data manipulation.
 
 Exposes a standard `process` function for use by the backend dispatcher.
 """
@@ -24,12 +24,12 @@ def process(df: pd.DataFrame, frequency: str, instrument: str, **kwargs) -> dict
             'plot_columns': list of columns to plot (e.g., ['close', 'ma20', 'ma60', 'ma120'])
         }
     """
-    df = df.copy()
-    plot_columns = ['close']
+    df = df.copy()    
+    plot_columns = ['volume']
     return {
         'data': df.to_dict(orient='records'),
         'plot_columns': plot_columns
     }
 
 # Optional: human-readable name for frontend display
-MODULE_NAME = "Stock Chart (Price Only)"
+MODULE_NAME = "Volume Chart"
