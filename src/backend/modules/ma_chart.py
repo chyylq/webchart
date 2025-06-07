@@ -34,4 +34,4 @@ def process(df: pd.DataFrame, frequency: str, instrument: str, **kwargs) -> dict
         'plot_columns': plot_columns
     }
 
-MODULE_NAME = "Moving Averages"
+MODULE_NAME = "MA"

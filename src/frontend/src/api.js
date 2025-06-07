@@ -53,7 +53,9 @@ export function useInstrumentData(frequency, instrument, params = {}) {
       frequency,
       instrument,
       params.start,
-      params.end
+      params.end,
+      params.module,
+      params.source // Ensure cache key includes source
     ],
     queryFn: async () => {
       if (!frequency || !instrument) return [];
@@ -61,6 +63,7 @@ export function useInstrumentData(frequency, instrument, params = {}) {
       if (params.start) url.searchParams.append('start', params.start);
       if (params.end) url.searchParams.append('end', params.end);
       if (params.module) url.searchParams.append('module', params.module);
+      if (params.source) url.searchParams.append('source', params.source);
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch data');
       // The backend now returns { data: [...], plot_columns: [...] }

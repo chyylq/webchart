@@ -9,7 +9,53 @@ import InstrumentChart from './components/InstrumentChart';
 import InstrumentTable from './components/InstrumentTable';
 import Select from 'react-select';
 
+// --- Signal overlay state and helpers ---
+import { useQuery } from '@tanstack/react-query';
+
+// Fetch available signals from backend
+function useAvailableSignals() {
+  return useQuery({
+    queryKey: ['signals'],
+    queryFn: async () => {
+      const res = await fetch('http://localhost:8000/signals');
+      if (!res.ok) throw new Error('Failed to fetch signals');
+      return res.json();
+    }
+  });
+}
+
 export default function ModuleDashboard() {
+  // Table visibility state
+  const [showTable, setShowTable] = React.useState(false);
+  // --- Signal overlay state ---
+  const [signalOverlays, setSignalOverlays] = React.useState([]); // [{signal: string, params: {}}]
+
+  // Fetch signals from backend
+  const { data: availableSignals, isLoading: signalsLoading, error: signalsError } = useAvailableSignals();
+
+  // Handler for signal overlay selection
+  const handleSignalOverlayChange = (selectedOptions) => {
+    const selected = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
+    setSignalOverlays(prev => selected.map(sig => {
+      const found = prev.find(x => x.signal === sig);
+      return found ? found : { signal: sig, params: {} };
+    }));
+  };
+
+  const signalOverlayOptions = (availableSignals || []).map(s => ({ value: s.value, label: s.label }));
+  const signalOverlayValue = signalOverlays.map(x => {
+    const sig = (availableSignals || []).find(s => s.value === x.signal);
+    return sig ? { value: sig.value, label: sig.label } : { value: x.signal, label: x.signal };
+  });
+
+  // Handler for signal parameter change
+  const handleSignalParamChange = (signal, key, value) => {
+    setSignalOverlays(prev => prev.map(x => x.signal === signal ? {
+      ...x,
+      params: { ...x.params, [key]: value }
+    } : x));
+  };
+
   const { moduleName } = useParams();
   // Fetch available modules for overlay selection
   const { data: modules, isLoading: modulesLoading, error: modulesError } = useModules();
@@ -47,6 +93,9 @@ export default function ModuleDashboard() {
   const { data: instruments, isLoading, error } = useInstruments();
   const [frequency, setFrequency] = React.useState('daily');
   const [instrument, setInstrument] = React.useState('');
+  const [instrumentInput, setInstrumentInput] = React.useState('');
+  // Default to 'remote' for surface_d2e_iv_chart, otherwise 'local'
+  const [source, setSource] = React.useState(() => (moduleName === 'surface_d2e_iv_chart' ? 'remote' : 'local'));
   const [dateRange, setDateRange] = React.useState({ start: '', end: '' });
   const [group, setGroup] = React.useState(searchParams.get('group') || '');
 
@@ -78,6 +127,13 @@ export default function ModuleDashboard() {
     // eslint-disable-next-line
   }, [instrument, group]);
 
+  // Sync instrumentInput with instrument when instrument changes (for group sync or after fetch)
+  React.useEffect(() => { setInstrumentInput(instrument); }, [instrument]);
+  // Update source default if moduleName changes
+  React.useEffect(() => {
+    setSource(moduleName === 'surface_d2e_iv_chart' ? 'remote' : 'local');
+  }, [moduleName]);
+
   React.useEffect(() => { setInstrument(''); }, [frequency]);
 
   // Keep URL in sync with group state
@@ -95,7 +151,7 @@ export default function ModuleDashboard() {
     data: instrumentData,
     isLoading: loadingData,
     error: dataError
-  } = useInstrumentData(frequency, instrument, { ...dateRange, module: moduleName });
+  } = useInstrumentData(frequency, instrument, { ...dateRange, module: moduleName, source });
 
   // Step 2: Fetch overlay module data in parallel using useQueries
 // Custom hook for overlay module data
@@ -119,6 +175,39 @@ function useOverlayModuleData(overlayModules, frequency, instrument, dateRange) 
 }
 // Use useOverlayModuleData only inside component
 const overlayQueries = useOverlayModuleData(overlayModules, frequency, instrument, dateRange);
+
+// --- Custom hook for signal overlay data ---
+function useSignalOverlayData(signalOverlays, frequency, instrument, dateRange) {
+  return useQueries({
+    queries: signalOverlays.map(sigOverlay => ({
+      queryKey: [
+        'signal',
+        sigOverlay.signal,
+        frequency,
+        instrument,
+        dateRange.start,
+        dateRange.end,
+        ...Object.entries(sigOverlay.params).flat()
+      ],
+      queryFn: async () => {
+        if (!frequency || !instrument || !sigOverlay.signal) return [];
+        const url = new URL(`http://localhost:8000/signal/${sigOverlay.signal}/${frequency}/${instrument}`);
+        if (dateRange.start) url.searchParams.append('start', dateRange.start);
+        if (dateRange.end) url.searchParams.append('end', dateRange.end);
+        // Add signal-specific params
+        Object.entries(sigOverlay.params).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && v !== '') url.searchParams.append(k, v);
+        });
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Failed to fetch signal data');
+        return res.json();
+      },
+      enabled: !!frequency && !!instrument && !!sigOverlay.signal,
+    }))
+  });
+}
+// Use useSignalOverlayData only inside component
+const signalOverlayQueries = useSignalOverlayData(signalOverlays, frequency, instrument, dateRange);
 
   // Merge all data on date
   const mergedData = React.useMemo(() => {
@@ -183,6 +272,67 @@ const overlayQueries = useOverlayModuleData(overlayModules, frequency, instrumen
         </label>
         {group && <span style={{ marginLeft: 12, color: '#1976d2' }}>(Linked group: {group})</span>}
       </div>
+      {instruments && (
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 20 }}>
+          <label>
+            Frequency:
+            <select value={frequency} onChange={e => setFrequency(e.target.value)} style={{ marginLeft: 8 }}>
+              {Object.keys(instruments).map(freq => (
+                <option key={freq} value={freq}>{freq}</option>
+              ))}
+            </select>
+          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+  <label style={{ display: 'flex', alignItems: 'center', marginBottom: 0 }}>
+    Source:
+    <span style={{ display: 'flex', gap: 10, marginLeft: 10 }}>
+      <label style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
+        <input
+          type="radio"
+          name="source"
+          value="local"
+          checked={source === 'local'}
+          onChange={() => setSource('local')}
+          style={{ marginRight: 4 }}
+        /> Local
+      </label>
+      <label style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
+        <input
+          type="radio"
+          name="source"
+          value="remote"
+          checked={source === 'remote'}
+          onChange={() => setSource('remote')}
+          style={{ marginRight: 4 }}
+        /> Remote
+      </label>
+    </span>
+  </label>
+  <label style={{ marginLeft: 20, display: 'flex', alignItems: 'center', marginBottom: 0 }}>
+    Instrument:
+    <input
+      type="text"
+      value={instrumentInput}
+      onChange={e => setInstrumentInput(e.target.value)}
+      onKeyDown={e => {
+        if (e.key === 'Enter') setInstrument(instrumentInput);
+      }}
+      style={{ marginLeft: 8, padding: '6px', borderRadius: 4, border: '1px solid #aaa', width: 110 }}
+      placeholder="Enter ticker"
+    />
+    {group && <span style={{ marginLeft: 8, color: '#888', fontSize: 12 }}>(Synced in group)</span>}
+  </label>
+</div>
+          <label>
+            Start Date:
+            <input type="date" value={dateRange.start} onChange={e => setDateRange(r => ({ ...r, start: e.target.value }))} style={{ marginLeft: 8 }} />
+          </label>
+          <label>
+            End Date:
+            <input type="date" value={dateRange.end} onChange={e => setDateRange(r => ({ ...r, end: e.target.value }))} style={{ marginLeft: 8 }} />
+          </label>
+        </div>
+      )}
       {modulesLoading && <div>Loading modules...</div>}
       {modulesError && <div style={{ color: 'red' }}>Error loading modules: {modulesError.message}</div>}
       {/* Multi-series overlay UI */}
@@ -229,50 +379,90 @@ const overlayQueries = useOverlayModuleData(overlayModules, frequency, instrumen
               ))}
             </div>
           )}
+          {/* --- Signal Overlay UI --- */}
+          <div style={{ marginTop: 24 }}>
+            <label>
+              <span style={{ marginRight: 8 }}>Signal Overlays:</span>
+              <div style={{ display: 'inline-block', minWidth: 240, verticalAlign: 'middle' }}>
+                {signalsLoading ? (
+                  <div style={{ color: '#888', fontStyle: 'italic', padding: '6px 0' }}>Loading signals...</div>
+                ) : signalsError ? (
+                  <div style={{ color: 'red', fontStyle: 'italic', padding: '6px 0' }}>Error loading signals</div>
+                ) : (
+                  <Select
+                    isMulti
+                    options={signalOverlayOptions}
+                    value={signalOverlayValue}
+                    onChange={handleSignalOverlayChange}
+                    placeholder={signalOverlayOptions.length === 0 ? 'No signals available' : 'Select signals...'}
+                    closeMenuOnSelect={false}
+                    styles={{ menu: base => ({ ...base, zIndex: 9999 }) }}
+                  />
+                )}
+              </div>
+            </label>
+            {/* Signal parameter UI for each selected signal */}
+            {signalOverlays.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                {signalOverlays.map(x => {
+                  const sig = (availableSignals || []).find(s => s.value === x.signal);
+                  if (!sig) return null;
+                  return (
+                    <div key={x.signal} style={{ marginBottom: 8, paddingLeft: 16 }}>
+                      <span style={{ fontWeight: 500 }}>{sig.label} parameters:</span>
+                      <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+                        {sig.params.map(p => (
+                          <label key={p.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            {p.label}:
+                            <input
+                              type={p.type}
+                              value={x.params[p.key] !== undefined ? x.params[p.key] : p.default}
+                              min={p.min}
+                              max={p.max}
+                              onChange={e => handleSignalParamChange(x.signal, p.key, e.target.value)}
+                              style={{ width: 60, marginLeft: 4 }}
+                            />
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          {/* --- End Signal Overlay UI --- */}
         </div>
       )}
       {isLoading && <div>Loading instruments...</div>}
       {error && <div style={{ color: 'red' }}>Error loading instruments: {error.message}</div>}
-      {instruments && (
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 20 }}>
-          <label>
-            Frequency:
-            <select value={frequency} onChange={e => setFrequency(e.target.value)} style={{ marginLeft: 8 }}>
-              {Object.keys(instruments).map(freq => (
-                <option key={freq} value={freq}>{freq}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Instrument:
-            <select value={instrument} onChange={e => setInstrument(e.target.value)} style={{ marginLeft: 8 }}>
-              <option value="">Select...</option>
-              {instruments[frequency].map(inst => (
-                <option key={inst} value={inst}>{inst}</option>
-              ))}
-            </select>
-            {group && <span style={{ marginLeft: 8, color: '#888', fontSize: 12 }}>(Synced in group)</span>}
-          </label>
-          <label>
-            Start Date:
-            <input type="date" value={dateRange.start} onChange={e => setDateRange(r => ({ ...r, start: e.target.value }))} style={{ marginLeft: 8 }} />
-          </label>
-          <label>
-            End Date:
-            <input type="date" value={dateRange.end} onChange={e => setDateRange(r => ({ ...r, end: e.target.value }))} style={{ marginLeft: 8 }} />
-          </label>
-        </div>
-      )}
       {loadingData && <div>Loading data...</div>}
       {dataError && <div style={{ color: 'red' }}>Error loading data: {dataError.message}</div>}
       {mergedData.length > 0 && (
         <>
-          <InstrumentChart data={mergedData} plotColumns={combinedPlotColumns} />
+           <InstrumentChart 
+              data={mergedData} 
+              plotColumns={combinedPlotColumns}
+              chartTypes={instrumentData && instrumentData.chart_types}
+              signalOverlays={signalOverlays}
+              signalOverlayQueries={signalOverlayQueries}
+            />
           {/* Data status below the chart, above the grid/table */}
           <div style={{ margin: '16px 0 0 0', fontWeight: 500, color: (loadingData || overlayQueries.some(q => q.isLoading)) ? '#888' : '#1976d2' }}>
             {(loadingData || overlayQueries.some(q => q.isLoading)) ? 'Fetching data' : (mergedData.length > 0 ? 'Data ready' : '')}
           </div>
-          <InstrumentTable data={mergedData} />
+          <div style={{ margin: '8px 0' }}>
+            <label style={{ cursor: 'pointer', fontWeight: 400 }}>
+              <input
+                type="checkbox"
+                checked={showTable}
+                onChange={e => setShowTable(e.target.checked)}
+                style={{ marginRight: 6 }}
+              />
+              Show Data Table
+            </label>
+          </div>
+          {showTable && <InstrumentTable data={mergedData} />}
         </>
       )}
       {mergedData.length === 0 && (

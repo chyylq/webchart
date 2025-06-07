@@ -32,4 +32,4 @@ def process(df: pd.DataFrame, frequency: str, instrument: str, **kwargs) -> dict
     }
 
 # Optional: human-readable name for frontend display
-MODULE_NAME = "Stock Chart (Price Only)"
+MODULE_NAME = "Stock Price"
