@@ -1,2 +1,7 @@
 # Ignore data directory
 /data/
+# Ignore IDE config
+.windsurfrules
+LICENSE
+README.md
+scratchpad.md
