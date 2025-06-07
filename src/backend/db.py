@@ -46,6 +46,8 @@ async def fetch_module_data_from_db(module_name, **kwargs):
     # Build argument list in order
     arg_names = [p['name'] for p in param_meta]
     args = [kwargs.get(name) for name in arg_names]
+    print("[DEBUG] Arg names:", arg_names)
+    print("[DEBUG] Args:", args)
     pool = await get_db_pool()
     async with pool.acquire() as conn:
         if schema:
@@ -55,8 +57,17 @@ async def fetch_module_data_from_db(module_name, **kwargs):
         print("[DEBUG] SQL:", sql)
         print("[DEBUG] Args:", args)
         rows = await conn.fetch(sql, *args)
+        print(f"[DEBUG] DB fetch returned {len(rows)} rows.")
+        if rows:
+            print(f"[DEBUG] First row: {dict(rows[0])}")
+        else:
+            print("[DEBUG] No rows returned from DB.")
         df = pd.DataFrame([dict(row) for row in rows])
         # Rename columns to logical keys for downstream processing
         rename_map = {col['db']: col['key'] for col in columns_meta}
         df = df.rename(columns=rename_map)
+        if not df.empty:
+            print("[DEBUG] DataFrame first row after rename:", df.head(1))
+        else:
+            print("[DEBUG] DataFrame is empty after rename.")
         return df

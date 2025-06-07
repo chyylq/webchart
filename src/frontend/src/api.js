@@ -46,7 +46,7 @@ export function useInstruments() {
  * @param {string} instrument - The selected instrument name.
  * @param {object} params - Optional date range (start, end).
  */
-export function useInstrumentData(frequency, instrument, params = {}) {
+export function useInstrumentData(frequency, instrument, params = {}, refetchInterval = 10000) {
   return useQuery({
     queryKey: [
       'data',
@@ -69,6 +69,7 @@ export function useInstrumentData(frequency, instrument, params = {}) {
       // The backend now returns { data: [...], plot_columns: [...] }
       return res.json();
     },
+    refetchInterval,
     enabled: !!frequency && !!instrument
   });
 }

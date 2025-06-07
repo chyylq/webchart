@@ -21,21 +21,42 @@ export default function InstrumentChart({ data, plotColumns, chartTypes = null, 
     const chart_types = chartTypes || (data && data.chart_types) || {};
     if (chart_types && Object.values(chart_types).includes('heatmap')) {
       // Assume backend provides: data, x, y, heatmap_meta
+      // Use integer indices for x/y and ticktext for axis labels, so matrix is categorical and not scaled
+      const xLabels = data.x_labels || data.x;
+      const yLabels = data.y_labels || data.y;
+      const z = data.data;
+      const xIndices = xLabels.map((_, i) => i);
+      const yIndices = yLabels.map((_, i) => i);
       const trace = {
-        z: data.data, // 2D array
-        x: data.x,    // x labels (e.g., delta)
-        y: data.y,    // y labels (e.g., d2e)
+        z: z, // 2D array
+        x: xIndices,
+        y: yIndices,
         type: 'heatmap',
-        colorscale: 'Viridis',
+        colorscale: [[0, 'green'], [1, 'red']], // green to red
+        // No reversescale needed; explicit colorscale
         colorbar: {
           title: (data.heatmap_meta && data.heatmap_meta.zlabel) || 'Value'
         },
-        name: 'IV Surface'
+        name: 'IV Surface',
+        text: data.data.map(row => row.map(v => (v == null ? '' : v.toFixed(1)))), // show values
+        texttemplate: '%{text}',
+        textfont: { color: 'black', size: 11 },
+        showscale: true
       };
       const layout = {
         title: 'IV Surface Heatmap',
-        xaxis: { title: (data.heatmap_meta && data.heatmap_meta.xlabel) || 'X' },
-        yaxis: { title: (data.heatmap_meta && data.heatmap_meta.ylabel) || 'Y' },
+        xaxis: {
+          title: (data.heatmap_meta && data.heatmap_meta.xlabel) || 'X',
+          tickvals: xIndices,
+          ticktext: xLabels,
+          automargin: true
+        },
+        yaxis: {
+          title: (data.heatmap_meta && data.heatmap_meta.ylabel) || 'Y',
+          tickvals: yIndices,
+          ticktext: yLabels,
+          automargin: true
+        },
         autosize: true,
         margin: { t: 40, l: 60, r: 60, b: 50 },
         hovermode: 'closest',

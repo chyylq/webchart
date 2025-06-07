@@ -25,7 +25,7 @@ DB_METADATA = {
         "columns": [
             # Example: fill in actual columns below
             {"db": "r_ticker", "key": "ticker", "label": "ticker"},
-            {"db": "r_d2e_key", "key": "d2e", "label": "d2e"},
+            {"db": "r_d2e_day", "key": "d2e", "label": "d2e"},
             {"db": "r_iv_delta_95", "key": "iv_delta_95", "label": "95"},
             {"db": "r_iv_delta_90", "key": "iv_delta_90", "label": "90"},
             {"db": "r_iv_delta_85", "key": "iv_delta_85", "label": "85"},
@@ -44,7 +44,7 @@ DB_METADATA = {
             {"db": "r_iv_delta_20", "key": "iv_delta_20", "label": "20"},
             {"db": "r_iv_delta_15", "key": "iv_delta_15", "label": "15"},
             {"db": "r_iv_delta_10", "key": "iv_delta_10", "label": "10"},
-            {"db": "r_iv_delta_5", "key": "iv_delta_5", "label": "5"}
+            {"db": "r_iv_delta_05", "key": "iv_delta_05", "label": "5"}
         ]
     },
     "option_delta_iv_current": {
@@ -75,7 +75,7 @@ DB_METADATA = {
             {"db": "r_iv_bid_delta_20", "key": "ivb_delta_20", "label": "20"},
             {"db": "r_iv_bid_delta_15", "key": "ivb_delta_15", "label": "15"},
             {"db": "r_iv_bid_delta_10", "key": "ivb_delta_10", "label": "10"},
-            {"db": "r_iv_bid_delta_5", "key": "ivb_delta_5", "label": "5"},
+            {"db": "r_iv_bid_delta_5", "key": "ivb_delta_05", "label": "5"},
             {"db": "r_iv_ask_delta_95", "key": "iva_delta_95", "label": "95"},
             {"db": "r_iv_ask_delta_90", "key": "iva_delta_90", "label": "90"},
             {"db": "r_iv_ask_delta_85", "key": "iva_delta_85", "label": "85"},
@@ -94,7 +94,7 @@ DB_METADATA = {
             {"db": "r_iv_ask_delta_20", "key": "iva_delta_20", "label": "20"},
             {"db": "r_iv_ask_delta_15", "key": "iva_delta_15", "label": "15"},
             {"db": "r_iv_ask_delta_10", "key": "iva_delta_10", "label": "10"},
-            {"db": "r_iv_ask_delta_5", "key": "iva_delta_5", "label": "5"}
+            {"db": "r_iv_ask_delta_5", "key": "iva_delta_05", "label": "5"}
         ]
     },
     "option_delta_iv_d2e_skew_current": {
@@ -106,7 +106,7 @@ DB_METADATA = {
         "columns": [
             # ... fill in columns for this function
             {"db": "r_ticker", "key": "ticker", "label": "ticker"},
-            {"db": "r_d2e_key", "key": "d2e", "label": "d2e"},
+            {"db": "r_d2e_day", "key": "d2e", "label": "d2e"},
             {"db": "r_skew_iv_delta_95", "key": "skew_delta_95", "label": "95"},
             {"db": "r_skew_iv_delta_90", "key": "skew_delta_90", "label": "90"},
             {"db": "r_skew_iv_delta_85", "key": "skew_delta_85", "label": "85"},
@@ -125,7 +125,7 @@ DB_METADATA = {
             {"db": "r_skew_iv_delta_20", "key": "skew_delta_20", "label": "20"},
             {"db": "r_skew_iv_delta_15", "key": "skew_delta_15", "label": "15"},
             {"db": "r_skew_iv_delta_10", "key": "skew_delta_10", "label": "10"},
-            {"db": "r_skew_iv_delta_5", "key": "skew_delta_5", "label": "5"}
+            {"db": "r_skew_iv_delta_05", "key": "skew_delta_05", "label": "5"}
         ]
     },
     "option_delta_iv_skew_current": {
@@ -156,7 +156,7 @@ DB_METADATA = {
             {"db": "r_skew_iv_delta_20", "key": "skew_delta_20", "label": "20"},
             {"db": "r_skew_iv_delta_15", "key": "skew_delta_15", "label": "15"},
             {"db": "r_skew_iv_delta_10", "key": "skew_delta_10", "label": "10"},
-            {"db": "r_skew_iv_delta_5", "key": "skew_delta_5", "label": "5"}
+            {"db": "r_skew_iv_delta_05", "key": "skew_delta_05", "label": "5"}
         ]
     },
 }

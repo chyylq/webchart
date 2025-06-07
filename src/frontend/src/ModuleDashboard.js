@@ -94,8 +94,12 @@ export default function ModuleDashboard() {
   const [frequency, setFrequency] = React.useState('daily');
   const [instrument, setInstrument] = React.useState('');
   const [instrumentInput, setInstrumentInput] = React.useState('');
-  // Default to 'remote' for surface_d2e_iv_chart, otherwise 'local'
-  const [source, setSource] = React.useState(() => (moduleName === 'surface_d2e_iv_chart' ? 'remote' : 'local'));
+  // Default source is now determined by module metadata (default_source)
+  const [source, setSource] = React.useState(() => {
+    if (!modules) return 'local';
+    const current = modules.find(m => m.module === moduleName);
+    return current && current.default_source ? current.default_source : 'local';
+  });
   const [dateRange, setDateRange] = React.useState({ start: '', end: '' });
   const [group, setGroup] = React.useState(searchParams.get('group') || '');
 
@@ -129,10 +133,12 @@ export default function ModuleDashboard() {
 
   // Sync instrumentInput with instrument when instrument changes (for group sync or after fetch)
   React.useEffect(() => { setInstrumentInput(instrument); }, [instrument]);
-  // Update source default if moduleName changes
+  // Update source default if moduleName changes or modules are loaded
   React.useEffect(() => {
-    setSource(moduleName === 'surface_d2e_iv_chart' ? 'remote' : 'local');
-  }, [moduleName]);
+    if (!modules) return;
+    const current = modules.find(m => m.module === moduleName);
+    setSource(current && current.default_source ? current.default_source : 'local');
+  }, [moduleName, modules]);
 
   React.useEffect(() => { setInstrument(''); }, [frequency]);
 
@@ -147,11 +153,31 @@ export default function ModuleDashboard() {
     }
   }, [group]);
 
+  // --- Auto-refresh state ---
+  const [autoRefresh, setAutoRefresh] = React.useState(true); // default ON
+  const [statusText, setStatusText] = React.useState('');
+
   const {
     data: instrumentData,
     isLoading: loadingData,
-    error: dataError
-  } = useInstrumentData(frequency, instrument, { ...dateRange, module: moduleName, source });
+    error: dataError,
+    isFetching,
+    isSuccess
+  } = useInstrumentData(
+    frequency,
+    instrument,
+    { ...dateRange, module: moduleName, source },
+    autoRefresh ? 10000 : false // 10s polling if enabled, else off
+  );
+
+  // Update status text on every successful refresh
+  React.useEffect(() => {
+    if (isFetching) return;
+    if (isSuccess) {
+      const now = new Date();
+      setStatusText(`Data refreshed at ${now.toLocaleTimeString()}`);
+    }
+  }, [isFetching, isSuccess]);
 
   // Step 2: Fetch overlay module data in parallel using useQueries
 // Custom hook for overlay module data
@@ -313,9 +339,9 @@ const signalOverlayQueries = useSignalOverlayData(signalOverlays, frequency, ins
     <input
       type="text"
       value={instrumentInput}
-      onChange={e => setInstrumentInput(e.target.value)}
+      onChange={e => setInstrumentInput(e.target.value.toUpperCase())}
       onKeyDown={e => {
-        if (e.key === 'Enter') setInstrument(instrumentInput);
+        if (e.key === 'Enter') setInstrument(instrumentInput.toUpperCase());
       }}
       style={{ marginLeft: 8, padding: '6px', borderRadius: 4, border: '1px solid #aaa', width: 110 }}
       placeholder="Enter ticker"
@@ -440,18 +466,26 @@ const signalOverlayQueries = useSignalOverlayData(signalOverlays, frequency, ins
       {dataError && <div style={{ color: 'red' }}>Error loading data: {dataError.message}</div>}
       {mergedData.length > 0 && (
         <>
-           <InstrumentChart 
-              data={mergedData} 
-              plotColumns={combinedPlotColumns}
-              chartTypes={instrumentData && instrumentData.chart_types}
-              signalOverlays={signalOverlays}
-              signalOverlayQueries={signalOverlayQueries}
-            />
+          {/* Chart data source mapping for modularity */}
+          {(() => {
+            // Use backend-provided data_type to decide chart data shape
+            const chartData = instrumentData && instrumentData.data_type === 'matrix' ? instrumentData : mergedData;
+            return (
+              <InstrumentChart 
+                data={chartData}
+                plotColumns={combinedPlotColumns}
+                chartTypes={instrumentData && instrumentData.chart_types}
+                signalOverlays={signalOverlays}
+                signalOverlayQueries={signalOverlayQueries}
+              />
+            );
+          })()}
+
           {/* Data status below the chart, above the grid/table */}
           <div style={{ margin: '16px 0 0 0', fontWeight: 500, color: (loadingData || overlayQueries.some(q => q.isLoading)) ? '#888' : '#1976d2' }}>
             {(loadingData || overlayQueries.some(q => q.isLoading)) ? 'Fetching data' : (mergedData.length > 0 ? 'Data ready' : '')}
           </div>
-          <div style={{ margin: '8px 0' }}>
+          <div style={{ margin: '8px 0', display: 'flex', gap: 32, alignItems: 'center' }}>
             <label style={{ cursor: 'pointer', fontWeight: 400 }}>
               <input
                 type="checkbox"
@@ -461,6 +495,15 @@ const signalOverlayQueries = useSignalOverlayData(signalOverlays, frequency, ins
               />
               Show Data Table
             </label>
+            <label style={{ cursor: 'pointer', fontWeight: 400 }}>
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={e => setAutoRefresh(e.target.checked)}
+                style={{ marginRight: 6 }}
+              />
+              Auto-refresh (every 10s)
+            </label>
           </div>
           {showTable && <InstrumentTable data={mergedData} />}
         </>
@@ -468,6 +511,10 @@ const signalOverlayQueries = useSignalOverlayData(signalOverlays, frequency, ins
       {mergedData.length === 0 && (
         <div>No data found for selected instrument and date range.</div>
       )}
+      {/* Status text area at the bottom */}
+      <div style={{ marginTop: 32, padding: 12, borderTop: '1px solid #ccc', color: '#1976d2', fontWeight: 500 }}>
+        {statusText}
+      </div>
     </div>
   );
 }

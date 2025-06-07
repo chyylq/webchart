@@ -64,11 +64,14 @@ def list_available_modules():
         try:
             mod = importlib.import_module(f"src.backend.modules.{module_info.name}")
             module_name = getattr(mod, "MODULE_NAME", module_info.name)
+            default_source = getattr(mod, "DEFAULT_SOURCE", "local")
         except Exception:
             module_name = module_info.name
+            default_source = "local"
         modules.append({
             "module": module_info.name,
-            "display_name": module_name
+            "display_name": module_name,
+            "default_source": default_source
         })
     return modules
 
@@ -158,7 +161,7 @@ async def get_instrument_data(
         if not hasattr(module_mod, "process_from_db"):
             raise HTTPException(status_code=500, detail=f"Module '{module}' does not have a 'process_from_db' function.")
         # Call the async process_from_db function with all relevant parameters
-        result = await module_mod.process_from_db(frequency=frequency, instrument=instrument, start=start, end=end)
+        result = await module_mod.process_from_db(frequency=frequency, ticker=instrument, start=start, end=end)
         return result
 
     # --- LOCAL FILE LOGIC ---
