@@ -1,5 +1,8 @@
 # Ignore data directory
 /data/
+# Ignore IDE directory
+/tools/
+/tests/
 # Ignore IDE config
 .windsurfrules
 LICENSE
