@@ -23,7 +23,7 @@ def process(df: pd.DataFrame, frequency: str, ticker: str, **kwargs) -> dict:
             'x': list of x-axis labels (delta),
             'y': list of y-axis labels (d2e),
             'plot_columns': ['iv_surface'],
-            'chart_types': {'iv_surface': 'heatmap'},
+            'chart_type': 'heatmap',
             'heatmap_meta': { 'zlabel': 'IV', 'xlabel': 'Delta', 'ylabel': 'D2E' }
         }
     """
@@ -36,7 +36,7 @@ def process(df: pd.DataFrame, frequency: str, ticker: str, **kwargs) -> dict:
     z = df_no_ticker[x].values.tolist() if 'd2e' in df_no_ticker else df_no_ticker.values.tolist()
     y = df_no_ticker['d2e'].tolist() if 'd2e' in df_no_ticker else list(df_no_ticker.index)
     # Flip y, y_labels, and z so smallest d2e is first (top)
-    if y and len(y) > 1 and y[0] > y[-1]:
+    if y and len(y) > 1 and y[0] < y[-1]:
         # Already descending, so reverse to ascending
         y = y[::-1]
         z = z[::-1]
@@ -68,7 +68,7 @@ def process(df: pd.DataFrame, frequency: str, ticker: str, **kwargs) -> dict:
         'y': y,
         'y_labels': y_labels,
         'plot_columns': ['iv_surface'],
-        'chart_types': {'iv_surface': 'heatmap'},
+        'chart_type': 'heatmap',
         'heatmap_meta': {
             'zlabel': 'IV',
             'xlabel': 'Delta',

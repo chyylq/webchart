@@ -21,6 +21,7 @@ def process(df: pd.DataFrame, frequency: str, instrument: str, **kwargs) -> dict
     Returns:
         dict: {
             'data': processed DataFrame as records (list of dicts),
+            'chart_type': 'line',
             'plot_columns': list of columns to plot (e.g., ['close', 'ma20', 'ma60', 'ma120'])
         }
     """
@@ -28,6 +29,7 @@ def process(df: pd.DataFrame, frequency: str, instrument: str, **kwargs) -> dict
     plot_columns = ['open_interest']
     return {
         'data': df.to_dict(orient='records'),
+        'chart_type': 'line',
         'plot_columns': plot_columns
     }
 

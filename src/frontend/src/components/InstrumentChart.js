@@ -11,20 +11,56 @@ import Plotly from 'plotly.js/dist/plotly';
  *
  * @param {Array} data - The instrument data to plot (array of objects with date, close, etc.).
  */
-// Accept chartTypes as a prop for flexibility, fallback to data.chart_types if present
-export default function InstrumentChart({ data, plotColumns, chartTypes = null, signalOverlays = [], signalOverlayQueries = [] }) {
+// Accept chartType as a string prop for clarity and contract consistency
+export default function InstrumentChart({ data, plotColumns, chartType = null, signalOverlays = [], signalOverlayQueries = [] }) {
+  // DEBUG: Log all props on every render
+  console.log('[InstrumentChart RENDER]', { data, plotColumns, chartType, signalOverlays, signalOverlayQueries });
   const chartRef = React.useRef(null);
 
   React.useEffect(() => {
+    console.log('[InstrumentChart EFFECT] running', { data, chartType });
     if (!data || !chartRef.current) return;
+    // If data is an array (matrix), this means the parent is passing the matrix directly, not the full instrumentData object
+    if (Array.isArray(data)) {
+      console.error('[InstrumentChart ERROR] "data" prop is an array, expected instrumentData object. Received:', data);
+      return;
+    }
     // --- HEATMAP SUPPORT ---
-    const chart_types = chartTypes || (data && data.chart_types) || {};
-    if (chart_types && Object.values(chart_types).includes('heatmap')) {
-      // Assume backend provides: data, x, y, heatmap_meta
-      // Use integer indices for x/y and ticktext for axis labels, so matrix is categorical and not scaled
-      const xLabels = data.x_labels || data.x;
-      const yLabels = data.y_labels || data.y;
-      const z = data.data;
+    // Log the full instrument data object
+    console.log('[InstrumentChart EFFECT] FULL DATA:', data);
+    // Assume chartType is a string (new contract)
+    const isHeatmap = (chartType === 'heatmap') || (data && data.chart_type === 'heatmap');
+    console.log('[InstrumentChart EFFECT] isHeatmap:', isHeatmap);
+    if (isHeatmap) {
+      // Support being passed either instrumentData or just the matrix
+      let xLabels, yLabels, z;
+      if (data && data.data_type === 'matrix') {
+        // Passed instrumentData directly
+        xLabels = data.x;
+        yLabels = data.y_labels;
+        z = data.data;
+      } else {
+        // Fallback (shouldn't happen for heatmap modules)
+        xLabels = data.x;
+        yLabels = data.y_labels;
+        z = data.data;
+      }
+      // Defensive checks
+      console.log('[Heatmap CHECK] typeof xLabels:', typeof xLabels, 'Array?', Array.isArray(xLabels), 'xLabels:', xLabels);
+      console.log('[Heatmap CHECK] typeof yLabels:', typeof yLabels, 'Array?', Array.isArray(yLabels), 'yLabels:', yLabels);
+      console.log('[Heatmap CHECK] typeof z:', typeof z, 'Array?', Array.isArray(z), 'z:', z);
+      if (!Array.isArray(xLabels) || !Array.isArray(yLabels) || !Array.isArray(z)) {
+        console.warn('[Heatmap WARNING] Missing or invalid xLabels, yLabels, or z', { xLabels, yLabels, z, data });
+        return;
+      }
+      // DEBUG LOGGING
+      console.log('[Heatmap DEBUG]', {
+        chartType: chartType || (data && data.chart_type),
+        xLabels,
+        yLabels,
+        z,
+        data
+      });
       const xIndices = xLabels.map((_, i) => i);
       const yIndices = yLabels.map((_, i) => i);
       const trace = {
@@ -71,14 +107,14 @@ export default function InstrumentChart({ data, plotColumns, chartTypes = null, 
     const colors = ['#007bff', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'];
     const traces = [];
     let hasRightAxis = false;
-    // Determine chart types for each column
+    // Use the global chartType (string) for all columns
     columns.forEach((col, idx) => {
       const key = typeof col === 'string' ? col : col.key;
       const label = typeof col === 'string' ? col : col.label;
       const yAxis = (typeof col === 'object' && col.yAxis === 'right') ? 'y2' : 'y';
       if (yAxis === 'y2') hasRightAxis = true;
-      const chartType = chart_types[key] || 'line';
-      if (chartType === 'bar') {
+      const chartTypeToUse = chartType || (data && data.chart_type) || 'line';
+      if (chartTypeToUse === 'bar') {
         traces.push({
           x: data.map(row => row.date),
           y: data.map(row => row[key]),

@@ -3,10 +3,12 @@
 
 import React from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { useInstruments, useInstrumentData, useModules } from './api';
+import { saveWindowGeometry } from './components/windowUtils';
+import { useInstruments, useInstrumentData, useModules, useModuleChartTypes } from './api';
 import { useQueries } from '@tanstack/react-query';
 import InstrumentChart from './components/InstrumentChart';
 import InstrumentTable from './components/InstrumentTable';
+import InstrumentChartPanel from './components/InstrumentChartPanel';
 import Select from 'react-select';
 
 // --- Signal overlay state and helpers ---
@@ -25,6 +27,7 @@ function useAvailableSignals() {
 }
 
 export default function ModuleDashboard() {
+
   // Table visibility state
   const [showTable, setShowTable] = React.useState(false);
   // --- Signal overlay state ---
@@ -42,6 +45,70 @@ export default function ModuleDashboard() {
     }));
   };
 
+  // Get moduleName and group
+  const { moduleName } = useParams();
+
+  // Fetch module chart type mapping
+  const { data: moduleChartTypes, isLoading: loadingModuleChartTypes, error: moduleChartTypesError } = useModuleChartTypes();
+
+  // Determine static chart type for this module (before instrumentData loads)
+  const staticChartType = React.useMemo(() => {
+    if (moduleChartTypes && moduleName) {
+      return moduleChartTypes[moduleName] || 'line';
+    }
+    return 'line';
+  }, [moduleChartTypes, moduleName]);
+
+  React.useEffect(() => {
+    if (moduleName && moduleChartTypes) {
+      console.log('DEBUG staticChartType for', moduleName, ':', staticChartType);
+    }
+  }, [moduleName, moduleChartTypes, staticChartType]);
+  const [group, setGroup] = React.useState(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    return searchParams.get('group') || '';
+  });
+
+  // --- BroadcastChannel for window close notification ---
+  // Read windowId from URL
+  const windowId = React.useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('windowId') || '';
+  }, []);
+
+  // Save window geometry on move/resize
+  React.useEffect(() => {
+    if (!windowId) return;
+    let timeout;
+    const save = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        import('./components/windowUtils').then(mod => {
+          mod.saveWindowGeometry(windowId);
+        });
+      }, 200);
+    };
+    window.addEventListener('resize', save);
+    window.addEventListener('move', save);
+    return () => {
+      window.removeEventListener('resize', save);
+      window.removeEventListener('move', save);
+      clearTimeout(timeout);
+    };
+  }, [windowId]);
+  React.useEffect(() => {
+    if (!window.BroadcastChannel || !windowId) return;
+    const channel = new window.BroadcastChannel('module_window_channel');
+    const handleBeforeUnload = () => {
+      channel.postMessage({ type: 'close', windowId });
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      channel.close();
+    };
+  }, [windowId]);
+
   const signalOverlayOptions = (availableSignals || []).map(s => ({ value: s.value, label: s.label }));
   const signalOverlayValue = signalOverlays.map(x => {
     const sig = (availableSignals || []).find(s => s.value === x.signal);
@@ -56,7 +123,6 @@ export default function ModuleDashboard() {
     } : x));
   };
 
-  const { moduleName } = useParams();
   // Fetch available modules for overlay selection
   const { data: modules, isLoading: modulesLoading, error: modulesError } = useModules();
   // State for overlay modules: [{module: string, yAxis: 'left'|'right'}]
@@ -90,18 +156,17 @@ export default function ModuleDashboard() {
   };
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const { data: instruments, isLoading, error } = useInstruments();
+  const { data: instruments, isLoading, error } = useInstruments();  // State for filters
   const [frequency, setFrequency] = React.useState('daily');
   const [instrument, setInstrument] = React.useState('');
   const [instrumentInput, setInstrumentInput] = React.useState('');
-  // Default source is now determined by module metadata (default_source)
+
   const [source, setSource] = React.useState(() => {
     if (!modules) return 'local';
     const current = modules.find(m => m.module === moduleName);
     return current && current.default_source ? current.default_source : 'local';
   });
-  const [dateRange, setDateRange] = React.useState({ start: '', end: '' });
-  const [group, setGroup] = React.useState(searchParams.get('group') || '');
+  const [dateRange, setDateRange] = React.useState({ start: '', end: '' });  
 
   // BroadcastChannel for instrument sync
   const channelRef = React.useRef(null);
@@ -137,7 +202,7 @@ export default function ModuleDashboard() {
   React.useEffect(() => {
     if (!modules) return;
     const current = modules.find(m => m.module === moduleName);
-    setSource(current && current.default_source ? current.default_source : 'local');
+    setSource(current && current.default_source ? current.default_source : 'remote');
   }, [moduleName, modules]);
 
   React.useEffect(() => { setInstrument(''); }, [frequency]);
@@ -169,6 +234,12 @@ export default function ModuleDashboard() {
     { ...dateRange, module: moduleName, source },
     autoRefresh ? 10000 : false // 10s polling if enabled, else off
   );
+
+  // DEBUG: Log main module data whenever it loads or updates
+  React.useEffect(() => {
+    console.log('DEBUG instrumentData:', instrumentData, 'loading:', loadingData, 'error:', dataError);
+  }, [instrumentData, loadingData, dataError]);
+
 
   // Update status text on every successful refresh
   React.useEffect(() => {
@@ -261,6 +332,14 @@ const signalOverlayQueries = useSignalOverlayData(signalOverlays, frequency, ins
     return merged;
   }, [instrumentData, overlayQueries, overlayModules]);
 
+  // Use staticChartType before data loads, then instrumentData.chart_type if present
+  const effectiveChartType = React.useMemo(() => {
+    if (instrumentData && instrumentData.chart_type) {
+      return instrumentData.chart_type;
+    }
+    return staticChartType;
+  }, [instrumentData, staticChartType]);
+
   // Build plotColumns array with yAxis info
   const combinedPlotColumns = React.useMemo(() => {
     if (!instrumentData || !instrumentData.plot_columns) return [];
@@ -293,221 +372,140 @@ const signalOverlayQueries = useSignalOverlayData(signalOverlays, frequency, ins
             value={group}
             onChange={e => setGroup(e.target.value)}
             placeholder="None"
-            style={{ padding: '6px', borderRadius: 4, border: '1px solid #aaa', minWidth: 120 }}
           />
         </label>
-        {group && <span style={{ marginLeft: 12, color: '#1976d2' }}>(Linked group: {group})</span>}
       </div>
-      {instruments && (
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 20 }}>
-          <label>
-            Frequency:
-            <select value={frequency} onChange={e => setFrequency(e.target.value)} style={{ marginLeft: 8 }}>
-              {Object.keys(instruments).map(freq => (
-                <option key={freq} value={freq}>{freq}</option>
-              ))}
-            </select>
-          </label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-  <label style={{ display: 'flex', alignItems: 'center', marginBottom: 0 }}>
-    Source:
-    <span style={{ display: 'flex', gap: 10, marginLeft: 10 }}>
-      <label style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
-        <input
-          type="radio"
-          name="source"
-          value="local"
-          checked={source === 'local'}
-          onChange={() => setSource('local')}
-          style={{ marginRight: 4 }}
-        /> Local
-      </label>
-      <label style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
-        <input
-          type="radio"
-          name="source"
-          value="remote"
-          checked={source === 'remote'}
-          onChange={() => setSource('remote')}
-          style={{ marginRight: 4 }}
-        /> Remote
-      </label>
-    </span>
-  </label>
-  <label style={{ marginLeft: 20, display: 'flex', alignItems: 'center', marginBottom: 0 }}>
-    Instrument:
-    <input
-      type="text"
-      value={instrumentInput}
-      onChange={e => setInstrumentInput(e.target.value.toUpperCase())}
-      onKeyDown={e => {
-        if (e.key === 'Enter') setInstrument(instrumentInput.toUpperCase());
-      }}
-      style={{ marginLeft: 8, padding: '6px', borderRadius: 4, border: '1px solid #aaa', width: 110 }}
-      placeholder="Enter ticker"
-    />
-    {group && <span style={{ marginLeft: 8, color: '#888', fontSize: 12 }}>(Synced in group)</span>}
-  </label>
-</div>
-          <label>
-            Start Date:
-            <input type="date" value={dateRange.start} onChange={e => setDateRange(r => ({ ...r, start: e.target.value }))} style={{ marginLeft: 8 }} />
-          </label>
-          <label>
-            End Date:
-            <input type="date" value={dateRange.end} onChange={e => setDateRange(r => ({ ...r, end: e.target.value }))} style={{ marginLeft: 8 }} />
-          </label>
-        </div>
-      )}
-      {modulesLoading && <div>Loading modules...</div>}
-      {modulesError && <div style={{ color: 'red' }}>Error loading modules: {modulesError.message}</div>}
-      {/* Multi-series overlay UI */}
-      {modules && (
-        <div style={{ marginBottom: 18 }}>
-          <label>
-            <span style={{ marginRight: 8 }}>Overlay Modules:</span>
-            <div style={{ display: 'inline-block', minWidth: 240, verticalAlign: 'middle' }}>
+      {console.log('DEBUG InstrumentChartPanel props:', { chartType: effectiveChartType, filters: {
+        frequency,
+        instrument,
+        instrumentInput,
+        dateRange,
+        source,
+        group,
+        modules,
+        instruments,
+        availableSignals,
+        signalsLoading,
+        signalsError,
+        ...(effectiveChartType === 'line' && {
+          overlayModules,
+          overlayOptions,
+          overlayValue,
+          overlaySelect: (
+            <Select
+              isMulti
+              options={overlayOptions}
+              value={overlayValue}
+              onChange={handleOverlayChange}
+              placeholder="Select overlays"
+              styles={{ container: base => ({ ...base, minWidth: 120, maxWidth: 220 }) }}
+            />
+          ),
+          signalOverlays,
+          signalOverlayOptions,
+          signalOverlayValue,
+          signalOverlaySelect: (
+            <Select
+              isMulti
+              options={signalOverlayOptions}
+              value={signalOverlayValue}
+              onChange={handleSignalOverlayChange}
+              placeholder="Select signals"
+              styles={{ container: base => ({ ...base, minWidth: 120, maxWidth: 220 }) }}
+            />
+          )
+        })
+      } })}
+      <InstrumentChartPanel
+        chartType={effectiveChartType}
+        filters={{
+          frequency,
+          instrument,
+          instrumentInput,
+          source,
+          group,
+          modules,
+          instruments,
+          availableSignals,
+          signalsLoading,
+          signalsError,
+          ...(effectiveChartType === 'line' && {
+            overlayModules,
+            overlayOptions,
+            overlayValue,
+            overlaySelect: (
               <Select
                 isMulti
                 options={overlayOptions}
                 value={overlayValue}
                 onChange={handleOverlayChange}
-                placeholder="Select overlay modules..."
-                closeMenuOnSelect={false}
-                styles={{ menu: base => ({ ...base, zIndex: 9999 }) }}
+                placeholder="Select overlays"
+                styles={{ container: base => ({ ...base, minWidth: 120, maxWidth: 220 }) }}
               />
-            </div>
-          </label>
-          {/* Y-axis assignment for each selected overlay */}
-          {overlayModules.length > 0 && (
-            <div style={{ marginTop: 8 }}>
-              {overlayModules.map(x => (
-                <div key={x.module} style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-                  <span style={{ minWidth: 120 }}>{modules.find(m => m.module === x.module)?.display_name || x.module}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleYAxisChange(x.module, x.yAxis === 'left' ? 'right' : 'left')}
-                    style={{
-                      marginLeft: 12,
-                      padding: '4px 12px',
-                      borderRadius: 16,
-                      border: '1px solid #888',
-                      background: x.yAxis === 'left' ? '#e3f2fd' : '#ffe0b2',
-                      color: '#333',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                      transition: 'background 0.2s',
-                    }}
-                  >
-                    {x.yAxis === 'left' ? 'Left Y-axis' : 'Right Y-axis'}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          {/* --- Signal Overlay UI --- */}
-          <div style={{ marginTop: 24 }}>
-            <label>
-              <span style={{ marginRight: 8 }}>Signal Overlays:</span>
-              <div style={{ display: 'inline-block', minWidth: 240, verticalAlign: 'middle' }}>
-                {signalsLoading ? (
-                  <div style={{ color: '#888', fontStyle: 'italic', padding: '6px 0' }}>Loading signals...</div>
-                ) : signalsError ? (
-                  <div style={{ color: 'red', fontStyle: 'italic', padding: '6px 0' }}>Error loading signals</div>
-                ) : (
-                  <Select
-                    isMulti
-                    options={signalOverlayOptions}
-                    value={signalOverlayValue}
-                    onChange={handleSignalOverlayChange}
-                    placeholder={signalOverlayOptions.length === 0 ? 'No signals available' : 'Select signals...'}
-                    closeMenuOnSelect={false}
-                    styles={{ menu: base => ({ ...base, zIndex: 9999 }) }}
-                  />
-                )}
-              </div>
-            </label>
-            {/* Signal parameter UI for each selected signal */}
-            {signalOverlays.length > 0 && (
-              <div style={{ marginTop: 8 }}>
-                {signalOverlays.map(x => {
-                  const sig = (availableSignals || []).find(s => s.value === x.signal);
-                  if (!sig) return null;
-                  return (
-                    <div key={x.signal} style={{ marginBottom: 8, paddingLeft: 16 }}>
-                      <span style={{ fontWeight: 500 }}>{sig.label} parameters:</span>
-                      <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-                        {sig.params.map(p => (
-                          <label key={p.key} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            {p.label}:
-                            <input
-                              type={p.type}
-                              value={x.params[p.key] !== undefined ? x.params[p.key] : p.default}
-                              min={p.min}
-                              max={p.max}
-                              onChange={e => handleSignalParamChange(x.signal, p.key, e.target.value)}
-                              style={{ width: 60, marginLeft: 4 }}
-                            />
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-          {/* --- End Signal Overlay UI --- */}
-        </div>
-      )}
-      {isLoading && <div>Loading instruments...</div>}
-      {error && <div style={{ color: 'red' }}>Error loading instruments: {error.message}</div>}
-      {loadingData && <div>Loading data...</div>}
-      {dataError && <div style={{ color: 'red' }}>Error loading data: {dataError.message}</div>}
-      {mergedData.length > 0 && (
-        <>
-          {/* Chart data source mapping for modularity */}
-          {(() => {
-            // Use backend-provided data_type to decide chart data shape
-            const chartData = instrumentData && instrumentData.data_type === 'matrix' ? instrumentData : mergedData;
-            return (
-              <InstrumentChart 
-                data={chartData}
-                plotColumns={combinedPlotColumns}
-                chartTypes={instrumentData && instrumentData.chart_types}
-                signalOverlays={signalOverlays}
-                signalOverlayQueries={signalOverlayQueries}
+            ),
+            signalOverlays,
+            signalOverlayOptions,
+            signalOverlayValue,
+            signalOverlaySelect: (
+              <Select
+                isMulti
+                options={signalOverlayOptions}
+                value={signalOverlayValue}
+                onChange={handleSignalOverlayChange}
+                placeholder="Select signals"
+                styles={{ container: base => ({ ...base, minWidth: 120, maxWidth: 220 }) }}
               />
-            );
-          })()}
-
-          {/* Data status below the chart, above the grid/table */}
-          <div style={{ margin: '16px 0 0 0', fontWeight: 500, color: (loadingData || overlayQueries.some(q => q.isLoading)) ? '#888' : '#1976d2' }}>
-            {(loadingData || overlayQueries.some(q => q.isLoading)) ? 'Fetching data' : (mergedData.length > 0 ? 'Data ready' : '')}
-          </div>
-          <div style={{ margin: '8px 0', display: 'flex', gap: 32, alignItems: 'center' }}>
-            <label style={{ cursor: 'pointer', fontWeight: 400 }}>
-              <input
-                type="checkbox"
-                checked={showTable}
-                onChange={e => setShowTable(e.target.checked)}
-                style={{ marginRight: 6 }}
-              />
-              Show Data Table
-            </label>
-            <label style={{ cursor: 'pointer', fontWeight: 400 }}>
-              <input
-                type="checkbox"
-                checked={autoRefresh}
-                onChange={e => setAutoRefresh(e.target.checked)}
-                style={{ marginRight: 6 }}
-              />
-              Auto-refresh (every 10s)
-            </label>
-          </div>
-          {showTable && <InstrumentTable data={mergedData} />}
-        </>
-      )}
+            ),
+            // Add-on filters for line chart only
+            dateRange
+          })
+        }}
+        onFilterChange={({ frequency, instrument, instrumentInput, dateRange, source, group, overlayModules, signalOverlays }) => {
+          if (frequency !== undefined) setFrequency(frequency);
+          if (instrument !== undefined) setInstrument(instrument);
+          if (instrumentInput !== undefined) setInstrumentInput(instrumentInput);
+          if (dateRange !== undefined) setDateRange(dateRange);
+          if (source !== undefined) setSource(source);
+          if (group !== undefined) setGroup(group);
+          if (overlayModules !== undefined) setOverlayModules(overlayModules);
+          if (signalOverlays !== undefined) setSignalOverlays(signalOverlays);
+        }}
+      >
+        {mergedData.length > 0 && (
+          <InstrumentChart
+            data={instrumentData}
+            plotColumns={combinedPlotColumns}
+            overlays={overlayModules}
+            signalOverlays={signalOverlays}
+            chartType={effectiveChartType}
+          />
+        )}
+      </InstrumentChartPanel>
+      {/* Data status below the chart, above the grid/table */}
+      <div style={{ margin: '16px 0 0 0', fontWeight: 500, color: (loadingData || overlayQueries.some(q => q.isLoading)) ? '#888' : '#1976d2' }}>
+        {(loadingData || overlayQueries.some(q => q.isLoading)) ? 'Fetching data' : (mergedData.length > 0 ? 'Data ready' : '')}
+      </div>
+      <div style={{ margin: '8px 0', display: 'flex', gap: 32, alignItems: 'center' }}>
+        <label style={{ cursor: 'pointer', fontWeight: 400 }}>
+          <input
+            type="checkbox"
+            checked={showTable}
+            onChange={e => setShowTable(e.target.checked)}
+            style={{ marginRight: 6 }}
+          />
+          Show Data Table
+        </label>
+        <label style={{ cursor: 'pointer', fontWeight: 400 }}>
+          <input
+            type="checkbox"
+            checked={autoRefresh}
+            onChange={e => setAutoRefresh(e.target.checked)}
+            style={{ marginRight: 6 }}
+          />
+          Auto-refresh (every 10s)
+        </label>
+      </div>
+      {showTable && <InstrumentTable data={mergedData} />}
       {mergedData.length === 0 && (
         <div>No data found for selected instrument and date range.</div>
       )}

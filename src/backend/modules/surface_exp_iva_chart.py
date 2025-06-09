@@ -50,7 +50,7 @@ def process(df: pd.DataFrame, frequency: str, ticker: str, **kwargs) -> dict:
         'y': y,
         'y_labels': y_labels,
         'plot_columns': ['iv_surface_iva'],
-        'chart_types': {'iv_surface_iva': 'heatmap'},
+        'chart_type': 'heatmap',
         'heatmap_meta': {
             'zlabel': 'IV Ask',
             'xlabel': 'Delta',

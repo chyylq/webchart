@@ -28,7 +28,8 @@ def process(df: pd.DataFrame, frequency: str, instrument: str, **kwargs) -> dict
     plot_columns = ['close']
     return {
         'data': df.to_dict(orient='records'),
-        'plot_columns': plot_columns
+        'plot_columns': plot_columns,
+        'chart_type': 'line'
     }
 
 # Optional: human-readable name for frontend display

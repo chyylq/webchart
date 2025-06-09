@@ -6,6 +6,22 @@ import { useQuery } from '@tanstack/react-query';
 const API_BASE = 'http://localhost:8000';
 
 /**
+ * useModuleChartTypes
+ * Purpose: Fetches the mapping of module name to chart_type from the FastAPI backend.
+ * Called from: ModuleDashboard or other components to determine chart type before data loads.
+ */
+export function useModuleChartTypes() {
+  return useQuery({
+    queryKey: ['module_chart_types'],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/module_chart_types`);
+      if (!res.ok) throw new Error('Failed to fetch module chart types');
+      return res.json();
+    }
+  });
+}
+
+/**
  * useModules
  * Purpose: Fetches the list of available data manipulation modules from the FastAPI backend.
  * Called from: Main page to display module selection.

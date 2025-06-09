@@ -31,7 +31,8 @@ def process(df: pd.DataFrame, frequency: str, instrument: str, **kwargs) -> dict
     plot_columns = ['ma20', 'ma60', 'ma120']
     return {
         'data': df.to_dict(orient='records'),
-        'plot_columns': plot_columns
+        'plot_columns': plot_columns,
+        'chart_type': 'line'
     }
 
 MODULE_NAME = "MA"

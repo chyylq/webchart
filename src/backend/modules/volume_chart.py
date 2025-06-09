@@ -30,9 +30,7 @@ def process(df: pd.DataFrame, frequency: str, instrument: str, **kwargs) -> dict
     return {
         'data': df.to_dict(orient='records'),
         'plot_columns': plot_columns,
-        'chart_types': {
-            'volume': 'bar'
-        }
+        'chart_type': 'bar'                     
     }
 
 # Optional: human-readable name for frontend display

@@ -77,6 +77,32 @@ def list_available_modules():
 
 # --- END MODULE LISTING UTILS ---
 
+@app.get("/module_chart_types")
+def module_chart_types():
+    """
+    Returns a dict mapping module names to their chart_type by calling their process function with dummy data.
+    """
+    import pkgutil
+    import importlib
+    import pandas as pd
+    MODULES_DIR = pathlib.Path(__file__).parent / "modules"
+    mapping = {}
+    # Dummy DataFrame for testing
+    dummy_df = pd.DataFrame({'date': [], 'open': [], 'high': [], 'low': [], 'close': [], 'volume': [], 'open_interest': []})
+    for module_info in pkgutil.iter_modules([str(MODULES_DIR)]):
+        name = module_info.name
+        try:
+            mod = importlib.import_module(f"src.backend.modules.{name}")
+            # Call process with dummy args
+            if hasattr(mod, "process"):
+                result = mod.process(dummy_df, "daily", "DUMMY")
+                chart_type = result.get("chart_type")
+                if chart_type:
+                    mapping[name] = chart_type
+        except Exception as e:
+            mapping[name] = None  # Or log error for debugging
+    return mapping
+
 @app.get("/signals")
 def get_signals():
     """List all available signal scripts and their parameter definitions."""
