@@ -24,9 +24,7 @@ def process(df: pd.DataFrame, frequency: str, ticker: str, **kwargs) -> dict:
     y = df_no_ticker['exp'].tolist() if 'exp' in df_no_ticker else list(df_no_ticker.index)
     if y and len(y) > 1 and y[0] < y[-1]:
         y = y[::-1]
-        z = z[::-1]
-    print("[DEBUG][IVA] y (exp):", y)
-    print("[DEBUG][IVA] z:", z)
+        z = z[::-1]    
     y_labels = [str(v) for v in y]
     key_to_label = get_key_to_label("option_delta_iv_current")
     x_labels = [key_to_label.get(xi, xi) for xi in x]
@@ -40,9 +38,7 @@ def process(df: pd.DataFrame, frequency: str, ticker: str, **kwargs) -> dict:
         return [
             [round(v, 1) if isinstance(v, (float, int)) and v is not None else v for v in row]
             for row in z
-        ]
-    print("[DEBUG][IVA] x_labels:", x_labels)
-    print("[DEBUG][IVA] y (exp):", y)
+        ]    
     return {
         'data_type': 'matrix',
         'data': round_matrix(safe_matrix(z)),

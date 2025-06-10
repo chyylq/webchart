@@ -12,10 +12,41 @@ import Plotly from 'plotly.js/dist/plotly';
  * @param {Array} data - The instrument data to plot (array of objects with date, close, etc.).
  */
 // Accept chartType as a string prop for clarity and contract consistency
-export default function InstrumentChart({ data, plotColumns, chartType = null, signalOverlays = [], signalOverlayQueries = [] }) {
+export default function InstrumentChart({ data, plotColumns, chartType = null, signalOverlays = [], signalOverlayQueries = [], chartSize = 'medium' }) {
   // DEBUG: Log all props on every render
-  console.log('[InstrumentChart RENDER]', { data, plotColumns, chartType, signalOverlays, signalOverlayQueries });
+  console.log('[InstrumentChart RENDER]', { data, plotColumns, chartType, signalOverlays, signalOverlayQueries, chartSize });
   const chartRef = React.useRef(null);
+  
+  // Helper function to get size values based on chartSize
+  const getSizeValues = () => {
+    switch(chartSize) {
+      case 'small':
+        return {
+          textSize: 6,
+          titleSize: 9,
+          tickSize: 5,
+          legendSize: 6,
+          margin: { t: 10, l: 30, r: 20, b: 20 }
+        };
+      case 'large':
+        return {
+          textSize: 11,
+          titleSize: 15,
+          tickSize: 10,
+          legendSize: 11,
+          margin: { t: 20, l: 50, r: 30, b: 30 }
+        };
+      case 'medium':
+      default:
+        return {
+          textSize: 9,
+          titleSize: 12,
+          tickSize: 8,
+          legendSize: 9,
+          margin: { t: 15, l: 40, r: 25, b: 25 }
+        };
+    }
+  };
 
   React.useEffect(() => {
     console.log('[InstrumentChart EFFECT] running', { data, chartType });
@@ -63,6 +94,9 @@ export default function InstrumentChart({ data, plotColumns, chartType = null, s
       });
       const xIndices = xLabels.map((_, i) => i);
       const yIndices = yLabels.map((_, i) => i);
+      // Get size values based on chartSize
+      const sizeValues = getSizeValues();
+      
       const trace = {
         z: z, // 2D array
         x: xIndices,
@@ -71,32 +105,39 @@ export default function InstrumentChart({ data, plotColumns, chartType = null, s
         colorscale: [[0, 'green'], [1, 'red']], // green to red
         // No reversescale needed; explicit colorscale
         colorbar: {
-          title: (data.heatmap_meta && data.heatmap_meta.zlabel) || 'Value'
+          title: (data.heatmap_meta && data.heatmap_meta.zlabel) || 'Value',
+          titlefont: { size: sizeValues.titleSize },
+          tickfont: { size: sizeValues.tickSize }
         },
         name: 'IV Surface',
         text: data.data.map(row => row.map(v => (v == null ? '' : v.toFixed(1)))), // show values
         texttemplate: '%{text}',
-        textfont: { color: 'black', size: 11 },
-        showscale: true
+        textfont: { color: 'black', size: sizeValues.textSize },
+        showscale: false // Hide the colorbar
       };
       const layout = {
-        title: 'IV Surface Heatmap',
         xaxis: {
-          title: (data.heatmap_meta && data.heatmap_meta.xlabel) || 'X',
           tickvals: xIndices,
           ticktext: xLabels,
-          automargin: true
+          tickfont: { size: sizeValues.tickSize },
+          automargin: false,  // Disable auto margin to make it more compact
+          showline: true,
+          ticks: 'outside',
+          ticklen: 2
         },
         yaxis: {
-          title: (data.heatmap_meta && data.heatmap_meta.ylabel) || 'Y',
           tickvals: yIndices,
           ticktext: yLabels,
-          automargin: true
+          tickfont: { size: sizeValues.tickSize },
+          automargin: false,  // Disable auto margin to make it more compact
+          showline: true,
+          ticks: 'outside',
+          ticklen: 2
         },
         autosize: true,
-        margin: { t: 40, l: 60, r: 60, b: 50 },
+        margin: sizeValues.margin,
         hovermode: 'closest',
-        hoverlabel: { bgcolor: '#fff', bordercolor: '#1976d2', font: { color: '#222', size: 11 } },
+        hoverlabel: { bgcolor: '#fff', bordercolor: '#1976d2', font: { color: '#222', size: sizeValues.textSize } },
       };
       Plotly.newPlot(chartRef.current, [trace], layout, {responsive: true});
       return;
@@ -107,6 +148,9 @@ export default function InstrumentChart({ data, plotColumns, chartType = null, s
     const colors = ['#007bff', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'];
     const traces = [];
     let hasRightAxis = false;
+    
+    // Get size values based on chartSize for all chart types
+    const sizeValues = getSizeValues();
     // Use the global chartType (string) for all columns
     columns.forEach((col, idx) => {
       const key = typeof col === 'string' ? col : col.key;
@@ -123,6 +167,7 @@ export default function InstrumentChart({ data, plotColumns, chartType = null, s
           marker: { color: colors[idx % colors.length] },
           showlegend: true,
           yaxis: yAxis,
+          textfont: { size: sizeValues.textSize },
         });
       } else {
         // Default to line
@@ -132,9 +177,10 @@ export default function InstrumentChart({ data, plotColumns, chartType = null, s
           type: 'scatter',
           mode: 'lines',
           name: label,
-          line: { color: colors[idx % colors.length], width: 1 },
+          line: { color: colors[idx % colors.length], width: chartSize === 'small' ? 1 : (chartSize === 'large' ? 2 : 1.5) },
           showlegend: true,
           yaxis: yAxis,
+          textfont: { size: sizeValues.textSize },
         });
         // End marker trace
         if (data.length > 0) {
@@ -143,11 +189,12 @@ export default function InstrumentChart({ data, plotColumns, chartType = null, s
             y: [data[data.length - 1][key]],
             type: 'scatter',
             mode: 'markers',
-            marker: { color: colors[idx % colors.length], size: 4, symbol: 'circle' },
+            marker: { color: colors[idx % colors.length], size: chartSize === 'small' ? 3 : (chartSize === 'large' ? 6 : 4), symbol: 'circle' },
             name: label + ' (end)',
             showlegend: false,
             hoverinfo: 'x+y+name',
             yaxis: yAxis,
+            textfont: { size: sizeValues.textSize },
           });
         }
       }
@@ -172,7 +219,7 @@ export default function InstrumentChart({ data, plotColumns, chartType = null, s
           x1: ev.date,
           y0: 0,
           y1: 1,
-          line: { color, width: 1, dash: 'dot' },
+          line: { color, width: chartSize === 'small' ? 1 : (chartSize === 'large' ? 2 : 1.5), dash: 'dot' },
           name: signalName,
         });
       });
@@ -183,30 +230,47 @@ export default function InstrumentChart({ data, plotColumns, chartType = null, s
         color: colorMap[-1], label: (signalName || 'Signal') + ' (Sell)', type: 'line' });
     });
 
+    // Use the already defined sizeValues from above
     const layout = {
-      title: 'Instrument Multi-Series Chart',
-      xaxis: { title: 'Date' },
-      yaxis: { title: 'Value', side: 'left' },
-      margin: { t: 40, l: 60, r: hasRightAxis ? 60 : 30, b: 50 },
+      xaxis: {
+        tickfont: { size: sizeValues.tickSize },
+        automargin: false,  // Disable auto margin to make it more compact
+        showline: true,
+        ticks: 'outside',
+        ticklen: 2
+      },
+      yaxis: { 
+        side: 'left',
+        tickfont: { size: sizeValues.tickSize },
+        automargin: false,  // Disable auto margin to make it more compact
+        showline: true,
+        ticks: 'outside',
+        ticklen: 2
+      },
+      margin: sizeValues.margin,
       autosize: true,
       legend: {
         orientation: 'h',
         x: 0,
         y: 1.13,
-        font: { size: 10 },
+        font: { size: sizeValues.legendSize },
         itemwidth: 80,
         borderwidth: 0,
       },
       hovermode: 'x unified', // Show all values at the same x (date)
-      hoverlabel: { bgcolor: '#fff', bordercolor: '#1976d2', font: { color: '#222', size: 11 } },
+      hoverlabel: { bgcolor: '#fff', bordercolor: '#1976d2', font: { color: '#222', size: sizeValues.textSize } },
       shapes,
     };
     if (hasRightAxis) {
       layout.yaxis2 = {
-        title: 'Value (Right Y)',
+        title: {
+          text: 'Value (Right Y)',
+          font: { size: sizeValues.titleSize }
+        },
         overlaying: 'y',
         side: 'right',
         showgrid: false,
+        tickfont: { size: sizeValues.tickSize }
       };
     }
     if (!chartRef.current.plotly) {

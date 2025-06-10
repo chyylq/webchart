@@ -160,11 +160,12 @@ export default function ModuleDashboard() {
   const [frequency, setFrequency] = React.useState('daily');
   const [instrument, setInstrument] = React.useState('');
   const [instrumentInput, setInstrumentInput] = React.useState('');
+  const [chartSize, setChartSize] = React.useState('medium'); // Control chart element sizes
 
   const [source, setSource] = React.useState(() => {
-    if (!modules) return 'local';
+    if (!modules) return 'remote';
     const current = modules.find(m => m.module === moduleName);
-    return current && current.default_source ? current.default_source : 'local';
+    return current && current.default_source ? current.default_source : 'remote';
   });
   const [dateRange, setDateRange] = React.useState({ start: '', end: '' });  
 
@@ -203,6 +204,10 @@ export default function ModuleDashboard() {
     if (!modules) return;
     const current = modules.find(m => m.module === moduleName);
     setSource(current && current.default_source ? current.default_source : 'remote');
+    
+    // Update the browser title with the module display name
+    const displayName = current?.display_name || moduleName;
+    document.title = displayName;
   }, [moduleName, modules]);
 
   React.useEffect(() => { setInstrument(''); }, [frequency]);
@@ -363,18 +368,6 @@ const signalOverlayQueries = useSignalOverlayData(signalOverlays, frequency, ins
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: 24 }}>
-      <h2>Module: <span style={{ color: '#1976d2' }}>{moduleName}</span></h2>
-      <div style={{ marginBottom: 18 }}>
-        <label>
-          <span style={{ marginRight: 8 }}>Group:</span>
-          <input
-            type="text"
-            value={group}
-            onChange={e => setGroup(e.target.value)}
-            placeholder="None"
-          />
-        </label>
-      </div>
       {console.log('DEBUG InstrumentChartPanel props:', { chartType: effectiveChartType, filters: {
         frequency,
         instrument,
@@ -424,6 +417,7 @@ const signalOverlayQueries = useSignalOverlayData(signalOverlays, frequency, ins
           instrumentInput,
           source,
           group,
+          chartSize,
           modules,
           instruments,
           availableSignals,
@@ -460,13 +454,14 @@ const signalOverlayQueries = useSignalOverlayData(signalOverlays, frequency, ins
             dateRange
           })
         }}
-        onFilterChange={({ frequency, instrument, instrumentInput, dateRange, source, group, overlayModules, signalOverlays }) => {
+        onFilterChange={({ frequency, instrument, instrumentInput, dateRange, group, chartSize, overlayModules, signalOverlays }) => {
           if (frequency !== undefined) setFrequency(frequency);
           if (instrument !== undefined) setInstrument(instrument);
           if (instrumentInput !== undefined) setInstrumentInput(instrumentInput);
           if (dateRange !== undefined) setDateRange(dateRange);
-          if (source !== undefined) setSource(source);
+          // Source is now controlled only by backend module defaults
           if (group !== undefined) setGroup(group);
+          if (chartSize !== undefined) setChartSize(chartSize);
           if (overlayModules !== undefined) setOverlayModules(overlayModules);
           if (signalOverlays !== undefined) setSignalOverlays(signalOverlays);
         }}
@@ -478,14 +473,15 @@ const signalOverlayQueries = useSignalOverlayData(signalOverlays, frequency, ins
             overlays={overlayModules}
             signalOverlays={signalOverlays}
             chartType={effectiveChartType}
+            chartSize={chartSize}
           />
         )}
       </InstrumentChartPanel>
       {/* Data status below the chart, above the grid/table */}
-      <div style={{ margin: '16px 0 0 0', fontWeight: 500, color: (loadingData || overlayQueries.some(q => q.isLoading)) ? '#888' : '#1976d2' }}>
+      <div style={{ margin: '8px 0 0 0', fontWeight: 500, color: (loadingData || overlayQueries.some(q => q.isLoading)) ? '#888' : '#1976d2', fontSize: 11 }}>
         {(loadingData || overlayQueries.some(q => q.isLoading)) ? 'Fetching data' : (mergedData.length > 0 ? 'Data ready' : '')}
       </div>
-      <div style={{ margin: '8px 0', display: 'flex', gap: 32, alignItems: 'center' }}>
+      <div style={{ margin: '4px 0', display: 'flex', gap: 32, alignItems: 'center', fontSize: 11 }}>
         <label style={{ cursor: 'pointer', fontWeight: 400 }}>
           <input
             type="checkbox"
@@ -507,10 +503,10 @@ const signalOverlayQueries = useSignalOverlayData(signalOverlays, frequency, ins
       </div>
       {showTable && <InstrumentTable data={mergedData} />}
       {mergedData.length === 0 && (
-        <div>No data found for selected instrument and date range.</div>
+        <div style={{ fontSize: 11 }}>No data found for selected instrument and date range.</div>
       )}
       {/* Status text area at the bottom */}
-      <div style={{ marginTop: 32, padding: 12, borderTop: '1px solid #ccc', color: '#1976d2', fontWeight: 500 }}>
+      <div style={{ marginTop: 16, padding: 8, borderTop: '1px solid #ccc', color: '#1976d2', fontWeight: 500, fontSize: 11 }}>
         {statusText}
       </div>
     </div>

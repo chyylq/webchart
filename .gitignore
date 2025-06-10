@@ -7,7 +7,6 @@
 .windsurfrules
 LICENSE
 README.md
-scratchpad.md
 # Ignore environment variables
 .env
 # ignore unrelated files

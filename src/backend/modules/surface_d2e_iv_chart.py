@@ -58,9 +58,6 @@ def process(df: pd.DataFrame, frequency: str, ticker: str, **kwargs) -> dict:
             for row in z
         ]
 
-    print("[DEBUG] x_labels:", x_labels)
-    print("[DEBUG] y:", y)
-
     return {
         'data_type': 'matrix',
         'data': round_matrix(safe_matrix(z)),
