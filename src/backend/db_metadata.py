@@ -75,7 +75,7 @@ DB_METADATA = {
             {"db": "r_iv_bid_delta_20", "key": "ivb_delta_20", "label": "20"},
             {"db": "r_iv_bid_delta_15", "key": "ivb_delta_15", "label": "15"},
             {"db": "r_iv_bid_delta_10", "key": "ivb_delta_10", "label": "10"},
-            {"db": "r_iv_bid_delta_5", "key": "ivb_delta_05", "label": "5"},
+            {"db": "r_iv_bid_delta_05", "key": "ivb_delta_05", "label": "5"},
             {"db": "r_iv_ask_delta_95", "key": "iva_delta_95", "label": "95"},
             {"db": "r_iv_ask_delta_90", "key": "iva_delta_90", "label": "90"},
             {"db": "r_iv_ask_delta_85", "key": "iva_delta_85", "label": "85"},
@@ -94,7 +94,7 @@ DB_METADATA = {
             {"db": "r_iv_ask_delta_20", "key": "iva_delta_20", "label": "20"},
             {"db": "r_iv_ask_delta_15", "key": "iva_delta_15", "label": "15"},
             {"db": "r_iv_ask_delta_10", "key": "iva_delta_10", "label": "10"},
-            {"db": "r_iv_ask_delta_5", "key": "iva_delta_05", "label": "5"}
+            {"db": "r_iv_ask_delta_05", "key": "iva_delta_05", "label": "5"}
         ]
     },
     "option_delta_iv_d2e_skew_current": {

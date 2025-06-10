@@ -48,6 +48,19 @@ export default function InstrumentChart({ data, plotColumns, chartType = null, s
     }
   };
 
+  // Helper function to format dates as YYYYmmdd if the input is a date string
+  const formatDateIfNeeded = (label) => {
+    if (typeof label !== 'string') return label;
+    
+    // Check if the label matches YYYY-MM-DD format
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (datePattern.test(label)) {
+      // Convert from YYYY-MM-DD to YYYYMMDD
+      return label.replace(/-/g, '');
+    }
+    return label;
+  };
+
   React.useEffect(() => {
     console.log('[InstrumentChart EFFECT] running', { data, chartType });
     if (!data || !chartRef.current) return;
@@ -84,6 +97,10 @@ export default function InstrumentChart({ data, plotColumns, chartType = null, s
         console.warn('[Heatmap WARNING] Missing or invalid xLabels, yLabels, or z', { xLabels, yLabels, z, data });
         return;
       }
+      
+      // Format date labels if they appear to be dates (YYYY-MM-DD)
+      xLabels = xLabels.map(label => formatDateIfNeeded(label));
+      yLabels = yLabels.map(label => formatDateIfNeeded(label));
       // DEBUG LOGGING
       console.log('[Heatmap DEBUG]', {
         chartType: chartType || (data && data.chart_type),

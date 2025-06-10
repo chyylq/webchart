@@ -27,7 +27,7 @@ export default function ModuleList() {
   }, []);
   const { data: modules, isLoading, error } = useModules();
   const navigate = useNavigate();
-  const [group, setGroup] = React.useState('');
+  // Group functionality moved entirely to individual module GUIs
 
 const [openedModules, setOpenedModules] = React.useState(() => {
   try {
@@ -101,32 +101,21 @@ function resetAllWindowPositions() {
 }
 
 return (
-  <div style={{ maxWidth: 600, margin: '40px auto', padding: 24, textAlign: 'center' }}>
-    <button onClick={resetAllWindowPositions} style={{ float: 'right', marginBottom: 10, background: '', border: '1px solid #aaa', color: '#222', borderRadius: 6, padding: '6px 12px', cursor: 'pointer' }}>
-      Reset Child Window Positions
-    </button>
-    <h2>Select a Data Manipulation Module</h2>
-    <div style={{ margin: '24px 0' }}>
-      <label>
-        <span style={{ marginRight: 8 }}>Group (optional, for linking):</span>
-        <input
-          type="text"
-          value={group}
-          onChange={e => setGroup(e.target.value)}
-          placeholder="Enter group name"
-          style={{ padding: '6px', borderRadius: 4, border: '1px solid #aaa', minWidth: 120 }}
-        />
-      </label>
+  <div style={{ maxWidth: 600, margin: '20px auto', padding: 16, textAlign: 'center' }}>
+    <div style={{ textAlign: 'right', marginBottom: 12 }}>
+      <button onClick={resetAllWindowPositions} style={{ background: '', border: '1px solid #aaa', color: '#222', borderRadius: 4, padding: '4px 8px', fontSize: '11px', cursor: 'pointer' }}>
+        Reset Window Positions
+      </button>
     </div>
     {/* Previously opened modules */}
     {openedModules.length > 0 && (
-      <div style={{ margin: '16px 0', textAlign: 'left' }}>
-        <div style={{ fontWeight: 500, marginBottom: 4 }}>Previously Opened Modules:</div>
+      <div style={{ margin: '10px 0', textAlign: 'left' }}>
+        <div style={{ fontWeight: 500, marginBottom: 3, fontSize: '13px' }}>Previously Opened:</div>
         {openedModules.map((mod, i) => (
           <span key={mod.windowId} style={{ display: 'inline-block', position: 'relative' }}>
             <button
               style={{
-                margin: '2px 6px 2px 0', padding: '6px 10px', borderRadius: 6, border: '1px solid #aaa', fontSize: 15,
+                margin: '2px 4px 2px 0', padding: '4px 6px', borderRadius: 4, border: '1px solid #aaa', fontSize: 12,
                 background: '#e3f2fd', cursor: 'pointer'
               }}
               onClick={() => reopenModule(mod)}
@@ -137,7 +126,7 @@ return (
             <button
               style={{
                 position: 'absolute', right: 2, top: 2,
-                border: 'none', background: 'transparent', color: '#b71c1c', fontWeight: 'bold', cursor: 'pointer', fontSize: 18,
+                border: 'none', background: 'transparent', color: '#b71c1c', fontWeight: 'bold', cursor: 'pointer', fontSize: 14,
                 lineHeight: 1, padding: 0
               }}
               title="Close this module window"
@@ -149,25 +138,26 @@ return (
         ))}
       </div>
     )}
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 32 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 6, marginTop: 12 }}>
       {modules && modules.length > 0 ? (
         modules.map(mod => {
           // Generate a unique windowId for each opened instance
           const windowId = `${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
-          const url = group
-            ? `/module/${mod.module}?group=${encodeURIComponent(group)}&windowId=${encodeURIComponent(windowId)}`
-            : `/module/${mod.module}?windowId=${encodeURIComponent(windowId)}`;
+          const url = `/module/${mod.module}?windowId=${encodeURIComponent(windowId)}`;
           return (
             <button
               key={mod.module + windowId}
               style={{
-                padding: '16px',
-                fontSize: '18px',
-                borderRadius: '8px',
+                padding: '6px',
+                fontSize: '12px',
+                borderRadius: '3px',
                 border: '1px solid #888',
                 background: '#f7f7f7',
                 cursor: 'pointer',
                 transition: 'background 0.2s',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}
               onClick={() => {
   // Try to restore geometry for this windowId
@@ -182,7 +172,7 @@ return (
   try {
     opened = JSON.parse(localStorage.getItem('openedModules') || '[]');
   } catch {}
-  opened.push({ module: mod.module, group, windowId, openedAt: Date.now() });
+  opened.push({ module: mod.module, windowId, openedAt: Date.now() });
   localStorage.setItem('openedModules', JSON.stringify(opened));
   setOpenedModules(opened);
 }}
