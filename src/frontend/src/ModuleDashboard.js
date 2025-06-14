@@ -65,17 +65,25 @@ export default function ModuleDashboard() {
       console.log('DEBUG staticChartType for', moduleName, ':', staticChartType);
     }
   }, [moduleName, moduleChartTypes, staticChartType]);
-  const [group, setGroup] = React.useState(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    return searchParams.get('group') || '';
-  });
-
   // --- BroadcastChannel for window close notification ---
   // Read windowId from URL
   const windowId = React.useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('windowId') || '';
   }, []);
+
+  const [group, setGroup] = React.useState(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    let g = searchParams.get('group');
+    if (!g && windowId) {
+      // Try to restore from saved geometry
+      try {
+        const geom = JSON.parse(localStorage.getItem(`moduleWindow_${windowId}`));
+        if (geom && geom.group) g = geom.group;
+      } catch {}
+    }
+    return g || '';
+  });
 
   // Save window geometry on move/resize
   React.useEffect(() => {
@@ -86,7 +94,7 @@ export default function ModuleDashboard() {
     const save = () => {
       clearTimeout(timeout);
       timeout = setTimeout(() => {
-        saveWindowGeometry(windowId);
+        saveWindowGeometry(windowId, group);
       }, 200);
     };
     window.addEventListener('resize', save);
@@ -105,7 +113,29 @@ export default function ModuleDashboard() {
       clearTimeout(timeout);
       clearInterval(pollMove);
     };
+  }, [windowId, group]);
+
+  // Automatically save geometry when group changes
+  React.useEffect(() => {
+    if (windowId && group) {
+      saveWindowGeometry(windowId, group);
+    }
+  }, [windowId, group]);
+
+  // Cleanup geometry only if main window is NOT closing
+  React.useEffect(() => {
+    const cleanup = () => {
+      const mainWindowClosing = localStorage.getItem('mainWindowClosing');
+      if (windowId && mainWindowClosing !== 'true') {
+        localStorage.removeItem(`moduleWindow_${windowId}`);
+      }
+    };
+    window.addEventListener('beforeunload', cleanup);
+    return () => {
+      window.removeEventListener('beforeunload', cleanup);
+    };
   }, [windowId]);
+
   React.useEffect(() => {
     if (!window.BroadcastChannel || !windowId) return;
     const channel = new window.BroadcastChannel('module_window_channel');
@@ -231,7 +261,7 @@ export default function ModuleDashboard() {
       searchParams.delete('group');
       setSearchParams(searchParams, { replace: true });
     }
-  }, [group]);
+  }, [group, searchParams, setSearchParams]);
 
   // --- Auto-refresh state ---
   const [autoRefresh, setAutoRefresh] = React.useState(true); // default ON

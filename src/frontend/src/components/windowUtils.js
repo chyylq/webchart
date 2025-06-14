@@ -5,7 +5,7 @@
  * Save the current window's position and size to localStorage under a unique key.
  * @param {string} windowId - Unique identifier for the window instance.
  */
-export function saveWindowGeometry(windowId) {
+export function saveWindowGeometry(windowId, group) {
   if (!windowId) return;
   const geometry = {
     left: window.screenX,
@@ -15,6 +15,7 @@ export function saveWindowGeometry(windowId) {
     screenWidth: window.screen.availWidth,
     screenHeight: window.screen.availHeight,
     savedAt: Date.now(),
+    group: group || undefined,
   };
   localStorage.setItem(`moduleWindow_${windowId}`, JSON.stringify(geometry));
 }
@@ -44,7 +45,10 @@ export function getValidWindowGeometry(windowId) {
   const safeTop = Math.max(0, Math.min(top, curScreenH - 50));
   const safeWidth = Math.min(width, curScreenW);
   const safeHeight = Math.min(height, curScreenH);
-  return { left: safeLeft, top: safeTop, width: safeWidth, height: safeHeight };
+  // Return group if present (for restoration)
+  const result = { left: safeLeft, top: safeTop, width: safeWidth, height: safeHeight };
+  if ('group' in geom) result.group = geom.group;
+  return result;
 }
 
 /**

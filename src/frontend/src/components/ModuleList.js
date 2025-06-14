@@ -16,6 +16,8 @@ export default function ModuleList() {
   React.useEffect(() => {
     const handleBeforeUnload = () => {
       isMainWindowClosing.current = true;
+      // Set mainWindowClosing flag in localStorage
+      localStorage.setItem('mainWindowClosing', 'true');
       windowRefs.current.forEach(win => {
         if (win && !win.closed) {
           win.close();
@@ -25,6 +27,12 @@ export default function ModuleList() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
+
+  React.useEffect(() => {
+    // Clear mainWindowClosing flag on main window load
+    localStorage.removeItem('mainWindowClosing');
+  }, []);
+
   const { data: modules, isLoading, error } = useModules();
   const navigate = useNavigate();
   // Group functionality moved entirely to individual module GUIs
@@ -38,6 +46,11 @@ const [openedModules, setOpenedModules] = React.useState(() => {
 });
 
 // BroadcastChannel: listen for module close messages
+// On main window load, clear the mainWindowClosing flag
+React.useEffect(() => {
+  localStorage.removeItem('mainWindowClosing');
+}, []);
+
 React.useEffect(() => {
   if (!window.BroadcastChannel) return;
   const channel = new window.BroadcastChannel('module_window_channel');
