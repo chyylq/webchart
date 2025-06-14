@@ -5,7 +5,7 @@ Loads credentials from environment variables for security.
 import asyncpg
 import os
 from dotenv import load_dotenv
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '../../.env'))
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
 import pandas as pd
 try:
     from .db_metadata import DB_METADATA

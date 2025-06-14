@@ -3,23 +3,24 @@
 
 import React from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { saveWindowGeometry } from './components/windowUtils';
 import { useInstruments, useInstrumentData, useModules, useModuleChartTypes } from './api';
 import { useQueries } from '@tanstack/react-query';
 import InstrumentChart from './components/InstrumentChart';
 import InstrumentTable from './components/InstrumentTable';
 import InstrumentChartPanel from './components/InstrumentChartPanel';
+import { saveWindowGeometry } from './components/windowUtils';
 import Select from 'react-select';
 
 // --- Signal overlay state and helpers ---
 import { useQuery } from '@tanstack/react-query';
-
 // Fetch available signals from backend
+import { API_BASE } from './api';
+
 function useAvailableSignals() {
   return useQuery({
     queryKey: ['signals'],
     queryFn: async () => {
-      const res = await fetch('http://localhost:8000/signals');
+      const res = await fetch(`${API_BASE}/signals`);
       if (!res.ok) throw new Error('Failed to fetch signals');
       return res.json();
     }
@@ -80,20 +81,29 @@ export default function ModuleDashboard() {
   React.useEffect(() => {
     if (!windowId) return;
     let timeout;
+    let lastX = window.screenX;
+    let lastY = window.screenY;
     const save = () => {
       clearTimeout(timeout);
       timeout = setTimeout(() => {
-        import('./components/windowUtils').then(mod => {
-          mod.saveWindowGeometry(windowId);
-        });
+        saveWindowGeometry(windowId);
       }, 200);
     };
     window.addEventListener('resize', save);
-    window.addEventListener('move', save);
+    window.addEventListener('move', save); // Include the move event (for browsers that support it)
+    // Poll for window move (since 'move' event is unreliable)
+    const pollMove = setInterval(() => {
+      if (window.screenX !== lastX || window.screenY !== lastY) {
+        lastX = window.screenX;
+        lastY = window.screenY;
+        save();
+      }
+    }, 1000);
     return () => {
       window.removeEventListener('resize', save);
       window.removeEventListener('move', save);
       clearTimeout(timeout);
+      clearInterval(pollMove);
     };
   }, [windowId]);
   React.useEffect(() => {
@@ -263,7 +273,7 @@ function useOverlayModuleData(overlayModules, frequency, instrument, dateRange) 
       queryKey: ['data', frequency, instrument, dateRange.start, dateRange.end, overlay.module],
       queryFn: async () => {
         if (!frequency || !instrument) return [];
-        const url = new URL(`http://localhost:8000/data/${frequency}/${instrument}`);
+        const url = new URL(`${API_BASE}/data/${frequency}/${instrument}`);
         if (dateRange.start) url.searchParams.append('start', dateRange.start);
         if (dateRange.end) url.searchParams.append('end', dateRange.end);
         if (overlay.module) url.searchParams.append('module', overlay.module);
@@ -293,7 +303,7 @@ function useSignalOverlayData(signalOverlays, frequency, instrument, dateRange) 
       ],
       queryFn: async () => {
         if (!frequency || !instrument || !sigOverlay.signal) return [];
-        const url = new URL(`http://localhost:8000/signal/${sigOverlay.signal}/${frequency}/${instrument}`);
+        const url = new URL(`${API_BASE}/signal/${sigOverlay.signal}/${frequency}/${instrument}`);
         if (dateRange.start) url.searchParams.append('start', dateRange.start);
         if (dateRange.end) url.searchParams.append('end', dateRange.end);
         // Add signal-specific params
